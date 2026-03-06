@@ -1,231 +1,99 @@
-#!/usr/bin/env bash
-#
-# Bootstrap Script - OpenClaw Memory Architecture
-# 用法: curl -fsSL https://raw.githubusercontent.com/kindomLee/openclaw-memory-arch/main/bootstrap.sh | bash -s -- [workspace_dir]
-#
-
+#!/bin/bash
 set -e
 
-# 顏色輸出（CI 環境自動關閉）
-if [ -n "$CI" ] || [ "$NO_COLOR" = "1" ]; then
-    RED=''
-    GREEN=''
-    YELLOW=''
-    BLUE=''
-    BOLD=''
-    NC=''
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Default workspace path
+DEFAULT_WORKSPACE="./clawd"
+
+echo -e "${BLUE}OpenClaw Workspace Template Bootstrap${NC}"
+echo -e "${BLUE}=====================================${NC}"
+echo
+
+# Ask for workspace path
+echo -e "${YELLOW}Enter workspace directory path (default: ${DEFAULT_WORKSPACE}):${NC}"
+read -r WORKSPACE_PATH
+
+# Use default if empty
+if [ -z "$WORKSPACE_PATH" ]; then
+    WORKSPACE_PATH="$DEFAULT_WORKSPACE"
+fi
+
+# Convert to absolute path
+# macOS compat: realpath may not exist
+if command -v realpath &>/dev/null; then
+    WORKSPACE_PATH=$(realpath "$WORKSPACE_PATH")
 else
-    RED='\033[0;31m'
-    GREEN='\033[0;32m'
-    YELLOW='\033[0;33m'
-    BLUE='\033[0;34m'
-    BOLD='\033[1m'
-    NC='\033[0m'
+    WORKSPACE_PATH=$(cd "$(dirname "$WORKSPACE_PATH")" && pwd)/$(basename "$WORKSPACE_PATH")
 fi
 
-# 預設值
-GITHUB_REPO="https://raw.githubusercontent.com/kindomLee/openclaw-memory-arch/main"
-WORKSPACE="${1:-${CLAWD_WORKSPACE:-./}}"
-FORCE_OVERWRITE=false
+echo -e "${BLUE}Setting up workspace at: ${WORKSPACE_PATH}${NC}"
+echo
 
-# 解析參數
-while [ $# -gt 0 ]; do
-    case "$1" in
-        --force)
-            FORCE_OVERWRITE=true
-            shift
-            ;;
-        --help|-h)
-            echo "用法: $0 [workspace_dir] [--force]"
-            echo ""
-            echo "參數:"
-            echo "  workspace_dir  工作目錄（預設: ./ 或 \$CLAWD_WORKSPACE）"
-            echo "  --force        覆蓋已存在的檔案"
-            echo ""
-            echo "範例:"
-            echo "  $0 /path/to/workspace"
-            echo "  $0 /path/to/workspace --force"
-            exit 0
-            ;;
-        *)
-            WORKSPACE="$1"
-            shift
-            ;;
-    esac
-done
-
-# 確保 workspace 是絕對路徑
-if [[ "$WORKSPACE" != /* ]]; then
-    WORKSPACE="$(pwd)/$WORKSPACE"
+# Create workspace directory if it doesn't exist
+if [ ! -d "$WORKSPACE_PATH" ]; then
+    echo -e "${YELLOW}Creating workspace directory...${NC}"
+    mkdir -p "$WORKSPACE_PATH"
 fi
 
-# 檢查必要工具
-check_curl() {
-    if ! command -v curl &> /dev/null; then
-        echo -e "${RED}錯誤: curl 未安裝${NC}" >&2
+# Check if workspace is empty
+if [ "$(ls -A "$WORKSPACE_PATH" 2>/dev/null)" ]; then
+    echo -e "${RED}Warning: Workspace directory is not empty!${NC}"
+    echo -e "${YELLOW}Continue? (y/N):${NC}"
+    read -r CONTINUE
+    if [[ ! "$CONTINUE" =~ ^[Yy]$ ]]; then
+        echo -e "${RED}Aborted.${NC}"
         exit 1
     fi
-}
+fi
 
-# 檢查網路連線
-check_network() {
-    echo -e "${BLUE}檢查網路連線...${NC}"
-    if ! curl -fsSL --connect-timeout 10 -o /dev/null "$GITHUB_REPO/README.md"; then
-        echo -e "${RED}錯誤: 無法連線到 GitHub${NC}" >&2
-        exit 1
-    fi
-    echo -e "${GREEN}✓ 網路連線正常${NC}"
-}
+# Copy template files
+echo -e "${YELLOW}Copying template files...${NC}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# 下載檔案
-download_file() {
-    local src="$1"
-    local dest="$2"
-    local desc="$3"
-    
-    if [ -f "$dest" ] && [ "$FORCE_OVERWRITE" = false ]; then
-        echo -e "${YELLOW}⏭  跳過 (已存在): $desc${NC}"
-        return 1
-    fi
-    
-    echo -e "${BLUE}↓ 下載: $desc${NC}"
-    if curl -fsSL -o "$dest" "$src" 2>/dev/null; then
-        echo -e "${GREEN}✓ 建立: $desc${NC}"
-        return 0
-    else
-        echo -e "${RED}✗ 失敗: $desc${NC}"
-        return 1
-    fi
-}
+if [ -d "$SCRIPT_DIR/templates" ]; then
+    cp -r "$SCRIPT_DIR/templates"/* "$WORKSPACE_PATH/"
+    echo -e "${GREEN}✓ Template files copied${NC}"
+else
+    echo -e "${RED}Error: templates/ directory not found in $SCRIPT_DIR${NC}"
+    exit 1
+fi
 
-# 建立目錄
-ensure_dir() {
-    local dir="$1"
-    if [ ! -d "$dir" ]; then
-        mkdir -p "$dir"
-        echo -e "${GREEN}✓ 建立目錄: $dir${NC}"
-    fi
-}
+# Create additional directories
+echo -e "${YELLOW}Creating additional directories...${NC}"
+mkdir -p "$WORKSPACE_PATH/memory"
+mkdir -p "$WORKSPACE_PATH/.learnings"
+mkdir -p "$WORKSPACE_PATH/scripts"
+mkdir -p "$WORKSPACE_PATH/reference"
+mkdir -p "$WORKSPACE_PATH/tmp"
+echo -e "${GREEN}✓ Directory structure created${NC}"
 
-# 主流程
-main() {
-    echo -e "${BOLD}========================================${NC}"
-    echo -e "${BOLD}  OpenClaw Memory Architecture Bootstrap${NC}"
-    echo -e "${BOLD}========================================${NC}"
-    echo ""
-    echo -e "Workspace: ${GREEN}$WORKSPACE${NC}"
-    echo -e "GitHub:     ${GREEN}$GITHUB_REPO${NC}"
-    echo ""
-    
-    # 前置檢查
-    check_curl
-    check_network
-    
-    # 確保 workspace 目錄存在
-    ensure_dir "$WORKSPACE"
-    
-    echo ""
-    echo -e "${BOLD}開始建立記憶架構...${NC}"
-    echo ""
-    
-    # 追蹤結果
-    local created=()
-    local skipped=()
-    
-    # 1. 建立 memory 目錄
-    ensure_dir "$WORKSPACE/memory"
-    created+=("memory/")
-    
-    # 2. 建立 scripts 目錄
-    ensure_dir "$WORKSPACE/scripts"
-    created+=("scripts/")
-    
-    # 3. 下載主要模板
-    if download_file "$GITHUB_REPO/templates/MEMORY.md" "$WORKSPACE/MEMORY.md" "MEMORY.md"; then
-        created+=("MEMORY.md")
-    else
-        skipped+=("MEMORY.md")
-    fi
-    
-    if download_file "$GITHUB_REPO/templates/AGENTS.md" "$WORKSPACE/AGENTS.md" "AGENTS.md"; then
-        created+=("AGENTS.md")
-    else
-        skipped+=("AGENTS.md")
-    fi
-    
-    if download_file "$GITHUB_REPO/templates/SOUL.md" "$WORKSPACE/SOUL.md" "SOUL.md"; then
-        created+=("SOUL.md")
-    else
-        skipped+=("SOUL.md")
-    fi
-    
-    if download_file "$GITHUB_REPO/templates/USER.md" "$WORKSPACE/USER.md" "USER.md"; then
-        created+=("USER.md")
-    else
-        skipped+=("USER.md")
-    fi
-    
-    # 4. 建立當天 daily-log
-    TODAY=$(date +%Y-%m-%d)
-    DAILY_LOG="$WORKSPACE/memory/${TODAY}.md"
-    if [ ! -f "$DAILY_LOG" ]; then
-        if download_file "$GITHUB_REPO/templates/daily-log.md" "$DAILY_LOG" "memory/${TODAY}.md"; then
-            created+=("memory/${TODAY}.md")
-        else
-            skipped+=("memory/${TODAY}.md")
-        fi
-    else
-        echo -e "${YELLOW}⏭  跳過 (已存在): memory/${TODAY}.md${NC}"
-        skipped+=("memory/${TODAY}.md")
-    fi
-    
-    # 5. 下載 memory-janitor.py
-    JANITOR_SCRIPT="$WORKSPACE/scripts/memory-janitor.py"
-    if download_file "$GITHUB_REPO/scripts/memory-janitor.py" "$JANITOR_SCRIPT" "scripts/memory-janitor.py"; then
-        chmod +x "$JANITOR_SCRIPT"
-        created+=("scripts/memory-janitor.py")
-    else
-        skipped+=("scripts/memory-janitor.py")
-    fi
-    
-    # 印出摘要
-    echo ""
-    echo -e "${BOLD}========================================${NC}"
-    echo -e "${BOLD}  摘要${NC}"
-    echo -e "${BOLD}========================================${NC}"
-    echo ""
-    
-    if [ ${#created[@]} -gt 0 ]; then
-        echo -e "${GREEN}已建立:${NC}"
-        for item in "${created[@]}"; do
-            echo -e "  ✓ $item"
-        done
-        echo ""
-    fi
-    
-    if [ ${#skipped[@]} -gt 0 ]; then
-        echo -e "${YELLOW}已跳過 (檔案已存在):${NC}"
-        for item in "${skipped[@]}"; do
-            echo -e "  ⏭ $item"
-        done
-        echo ""
-    fi
-    
-    # 提示設定 cron
-    echo -e "${BOLD}下一步：設定自動化維護${NC}"
-    echo ""
-    echo "建議設定每日 cron 執行 memory-janitor.py："
-    echo ""
-    echo -e "${BLUE}crontab -e${NC}"
-    echo "# 加入以下行（晚間 20:02 執行）："
-    echo "02 20 * * * cd $WORKSPACE && python3 scripts/memory-janitor.py --force"
-    echo ""
-    echo "或使用 OpenClaw cron："
-    echo -e "${BLUE}openclaw cron add --name 'memory-janitor' --at '20h' --system-event 'Memory janitor' --session main${NC}"
-    echo ""
-    echo -e "${GREEN}完成！記憶架構已建立。${NC}"
-    echo ""
-    echo "閱讀 MEMORY.md 了解如何填充你的個人資訊。"
-}
+# Set permissions
+echo -e "${YELLOW}Setting permissions...${NC}"
+chmod 755 "$WORKSPACE_PATH"
+chmod 644 "$WORKSPACE_PATH"/*.md
+if [ -d "$WORKSPACE_PATH/scripts" ]; then
+    find "$WORKSPACE_PATH/scripts" -name "*.sh" -exec chmod +x {} \; 2>/dev/null || true
+fi
+echo -e "${GREEN}✓ Permissions set${NC}"
 
-main "$@"
+# Success message
+echo
+echo -e "${GREEN}✨ Workspace setup complete!${NC}"
+echo
+echo -e "${BLUE}Next steps:${NC}"
+echo -e "1. ${YELLOW}Fill in USER.md with your information${NC}"
+echo -e "2. ${YELLOW}Customize IDENTITY.md for your agent's personality${NC}"
+echo -e "3. ${YELLOW}Configure OpenClaw to use workspace: ${WORKSPACE_PATH}${NC}"
+echo -e "4. ${YELLOW}Review and customize AGENTS.md for your workflows${NC}"
+echo -e "5. ${YELLOW}Add your specific tools and services to TOOLS.md${NC}"
+echo
+echo -e "${BLUE}Workspace location: ${WORKSPACE_PATH}${NC}"
+echo -e "${BLUE}Documentation: ${WORKSPACE_PATH}/guides/${NC}"
+echo
+echo -e "${GREEN}Happy agent building! 🤖${NC}"
