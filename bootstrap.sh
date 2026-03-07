@@ -56,13 +56,29 @@ fi
 echo -e "${YELLOW}Copying template files...${NC}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-if [ -d "$SCRIPT_DIR/templates" ]; then
-    cp -r "$SCRIPT_DIR/templates"/* "$WORKSPACE_PATH/"
-    echo -e "${GREEN}✓ Template files copied${NC}"
-else
+if [ ! -d "$SCRIPT_DIR/templates" ]; then
     echo -e "${RED}Error: templates/ directory not found in $SCRIPT_DIR${NC}"
     exit 1
 fi
+
+# Smart copy: skip files that already exist, only add missing ones
+SKIPPED=0
+COPIED=0
+cd "$SCRIPT_DIR/templates"
+find . -type f | while read -r file; do
+    target="$WORKSPACE_PATH/$file"
+    if [ -f "$target" ]; then
+        echo -e "  ${YELLOW}skip${NC} $file (already exists)"
+        SKIPPED=$((SKIPPED + 1))
+    else
+        mkdir -p "$(dirname "$target")"
+        cp "$file" "$target"
+        echo -e "  ${GREEN}copy${NC} $file"
+        COPIED=$((COPIED + 1))
+    fi
+done
+cd "$SCRIPT_DIR"
+echo -e "${GREEN}✓ Template files processed (existing files preserved)${NC}"
 
 # Create additional directories
 echo -e "${YELLOW}Creating additional directories...${NC}"
