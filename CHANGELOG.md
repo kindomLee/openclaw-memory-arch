@@ -5,6 +5,28 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-03-24
+
+### Added
+- **Source-First Principle** (SOUL.md + BOOTSTRAP.md): Factual claims must be verified via search/read before answering. Model memory only for reasoning, never for facts. "Unverified" label required when sources unavailable
+- **Source-First Checkpoint** (BOOTSTRAP.md): Decision gate between task classification and reply generation — blocks unverified factual claims
+- **Context Curator Pattern** (AGENTS.md): Main session injects precise context excerpts into sub-agent task prompts (preferences → SOUL.md, infrastructure → MEMORY.md, history → memory/)
+- **Unverified Facts row** in Friction Check table (AGENTS.md): Catches replies containing names/numbers/features without sources
+- **Information Density prior** (SOUL.md): Dense output (tables, bullets) preferred; conclusion-first structure
+- **Interaction Rhythm prior** (SOUL.md): Progress report restraint (5+ tool calls) and mandatory sub-agent review
+
+### Changed
+- **BOOTSTRAP.md**: Added model hint column to classification matrix; added Evaluate (🧪) and Writing (📝) categories; Source-First checkpoint as mandatory gate; expanded decision tree with factual claim branch
+- **AGENTS.md**: Added Context Curator section under Sub-agent Delegation; expanded config change protocol (prefer `openclaw config set`); memory query tips with concrete examples; compaction guide adds proactive trimming advice
+- **SOUL.md**: Expanded Decision Priors with Information Density, Source-First Principle, and Interaction Rhythm sections
+
+### Notes
+- All changes extracted from 5+ months of production usage patterns
+- Source-First principle alone prevented ~15 hallucination incidents in testing
+- Context Curator pattern reduced sub-agent fact errors by providing relevant workspace context
+
+---
+
 ## [2.0.0] - 2026-03-17
 
 ### Added
@@ -60,5 +82,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[2.1.0]: https://github.com/kindomLee/openclaw-workspace-template/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/kindomLee/openclaw-workspace-template/compare/v1.0.0...v2.0.0
 [1.0.0]: https://github.com/kindomLee/openclaw-workspace-template/tree/v1.0.0

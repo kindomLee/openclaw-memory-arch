@@ -7,7 +7,7 @@
 ## Memory
 - **Daily:** `memory/YYYY-MM-DD.md` — raw logs
 - **Long-term:** `MEMORY.md` — curated (main session only, for security)
-- **寫下來！** "Mental notes" don't survive restarts. Use files.
+- **Write it down!** "Mental notes" don't survive restarts. Use files.
 
 ## SOUL.md Evolution
 - **Detect:** When user corrects behavior ("don't ask" "too verbose" "just do it"), write proposal to `memory/soul-proposals.md`
@@ -16,9 +16,10 @@
 
 ## Memory Extraction (Main Session)
 When important conversations end, edit MEMORY.md directly:
-- **Trigger:** New decisions, config changes, new knowledge, problem solutions
+- **Trigger:** New decisions, config changes, new knowledge, problem solutions, entity updates
 - **Skip:** Casual chat, simple queries, routine ops
 - **Before writing:** grep to avoid duplicates
+- **Sync:** Update Events Timeline for notable events
 - **P-level:** Personal prefs/infra → P0 | Tech solutions → P1+date | Experiments → P2+date
 
 ## Safety
@@ -54,7 +55,8 @@ When important conversations end, edit MEMORY.md directly:
 - **Progress updates:** Only after 5+ consecutive tool calls.
 
 ### Post-Generation Friction Check
-**Trigger:** Compound questions, reports, status updates. Skip for simple chat.
+**Trigger:** Compound questions, reports, status updates, factual claims. Skip for simple chat.
+
 | Friction | Check | Fix |
 |----------|-------|-----|
 | Off-topic | Addresses every question? | Fill gaps |
@@ -63,25 +65,35 @@ When important conversations end, edit MEMORY.md directly:
 | State guessing | Verified actual state? | Check first |
 | Debug leak | Contains tool errors? | Remove, keep conclusions |
 | Missed items | Only answered first Q? | Cross-check original |
+| Unverified facts | Contains names/numbers/features without source? | Search or label "unverified" |
 
 ## ⚠️ Config Change Protocol
 1. **Backup first** — `cp openclaw.json openclaw.json.bak`
 2. **Validate** — `openclaw config validate` before restart
-3. **Unknown keys → check docs** — Don't guess
+3. **Unknown keys → check docs** — Don't guess config syntax
 4. **Notify user before gateway restart** (kills your own session)
+5. **Prefer `openclaw config set`** over manual JSON edits
 
 ## Memory Retrieval Strategy
 Three steps: ① memory_search → ② rewrite query, search again → ③ read file directly.
 - 1-2 searches not enough → read the file. Don't retry infinitely.
 - Skip for casual chat / new tasks. Don't re-search what's already in context.
-- Query tips: Use specific nouns/models instead of abstract descriptions
+- Query tips: Use specific nouns/models instead of abstract descriptions (`WireGuard config` → `home VPN MTU wireguard`)
 
 ## Sub-agent Delegation
-- **Suitable:** Research, summaries, file ops, reports (clear steps, no user interaction needed)
+- **Suitable:** Research, summaries, file ops, reports (clear steps, no interaction needed)
 - **Keep in main:** Actions needing confirmation, context-dependent decisions, real-time chat
 - **"Try it" = execute immediately** — Spawn sub-agent, report results
 - **Always review results** — Verify facts before forwarding. Never forward unreviewed.
 - **Failed sub-agent → check** — `sessions_history` to determine real failure vs hiccup
+
+### Context Curator Pattern
+Main session is the Context Curator — inject relevant context into sub-agent task prompts:
+- Task involves preferences → excerpt from SOUL.md Decision Priors
+- Task involves infrastructure → excerpt from MEMORY.md Infrastructure
+- Task involves past decisions → excerpt relevant memory/ sections
+- Pure research/analysis (self-contained) → no extra context needed
+- **Principle: precise excerpts > full file injection.** Only give what the task needs.
 
 ## Architecture
 - **Main session** = decisions + interaction | **Sub-agent** = execution | **Script/CLI** = fixed logic
@@ -95,3 +107,4 @@ Three steps: ① memory_search → ② rewrite query, search again → ③ read 
 
 - **Written to disk = persistent**, verbal = temporary.
 - `compaction-safety-net` hook auto-saves recent conversation before compaction
+- In long conversations: proactively trim — don't re-reference completed intermediate results
