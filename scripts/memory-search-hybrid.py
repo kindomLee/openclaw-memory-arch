@@ -14,8 +14,10 @@ STOPWORDS = frozenset(
 )
 
 def extract_keywords(text: str) -> set:
-    words = re.findall(r'[\w\u4e00-\u9fff—、。（）【】]{2,}', text)
-    return {w for w in words if w.lower() not in STOPWORDS and len(w) > 1}
+    # Lowercase on extraction so that a "PostgreSQL" mention in the content
+    # matches a "postgresql" query. Chinese is already case-insensitive.
+    words = re.findall(r'[\w\u4e00-\u9fff—、。（）【】]{2,}', text.lower())
+    return {w for w in words if w not in STOPWORDS and len(w) > 1}
 
 def temporal_boost(mtime: float, cutoff: float, now: float, days: int) -> float:
     """Closer files get up to 40% boost; expired files get 30% penalty."""

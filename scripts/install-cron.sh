@@ -15,9 +15,18 @@ SELF_DIR="$(cd "$(dirname "$0")" && pwd)"
 source "$SELF_DIR/lib/workspace.sh"
 
 WS=$(openclaw_workspace)
-TEMPLATE="$WS/templates/crontab.example"
-if [ ! -f "$TEMPLATE" ]; then
-    echo "error: $TEMPLATE not found" >&2
+# bootstrap.sh flattens templates/* to the workspace root, so the example
+# lives at $WS/crontab.example after install. Fall back to the source
+# location for users running this straight out of the template repo.
+TEMPLATE=""
+for candidate in "$WS/crontab.example" "$WS/templates/crontab.example"; do
+    if [ -f "$candidate" ]; then
+        TEMPLATE="$candidate"
+        break
+    fi
+done
+if [ -z "$TEMPLATE" ]; then
+    echo "error: crontab.example not found (looked in $WS/ and $WS/templates/)" >&2
     exit 1
 fi
 

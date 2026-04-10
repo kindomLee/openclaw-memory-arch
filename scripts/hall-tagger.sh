@@ -21,7 +21,9 @@ done
 # ── Hall Classification Function ────────────────────────────
 hall_tag() {
     local text="$1"
-    local t="${text,,}"
+    # Portable lowercase (bash 3.2 on macOS has no ${var,,} expansion).
+    local t
+    t=$(printf '%s' "$text" | tr '[:upper:]' '[:lower:]')
 
     if echo "$t" | grep -qE '(決定|决策|選擇|選用|採用|decided|chose|selected|adopted|locked|settled)'; then
         echo "hall_facts"

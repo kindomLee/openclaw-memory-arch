@@ -23,10 +23,17 @@ FLAGS=("$FLAG_DIR"/*.flag)
 [ ${#FLAGS[@]} -eq 0 ] && exit 0
 
 # Build a concatenated report block from every flag file.
+# Note: we append the trailing blank line *outside* the command substitution
+# because `$( ... )` strips trailing newlines, which would otherwise run two
+# flags together in the rendered output.
 report=""
 for f in "${FLAGS[@]}"; do
     name=$(basename "$f" .flag)
-    report+="$(printf '=== %s ===\n%s\n\n' "$name" "$(cat "$f")")"
+    body=$(cat "$f")
+    report+="=== ${name} ===
+${body}
+
+"
 done
 
 # Emit the hook payload. Requires `jq` for safe JSON encoding.
