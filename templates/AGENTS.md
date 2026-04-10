@@ -9,6 +9,44 @@
 - **Long-term:** `MEMORY.md` — curated (main session only, for security)
 - **Write it down!** "Mental notes" don't survive restarts. Use files.
 
+### Hall Classification (journal tagging)
+Every bullet in `memory/YYYY-MM-DD.md` should carry a `[hall_*]` prefix so
+hybrid search can boost the right entries. Let `scripts/hall-tagger.sh`
+backfill tags for the last N days — it's idempotent.
+
+| Hall | Trigger keywords (zh/en) | Purpose |
+|------|--------------------------|---------|
+| `hall_facts` | 決定/選擇/採用/decided/adopted | decisions, locked-in facts |
+| `hall_events` | (default — no keyword match) | raw events, status changes |
+| `hall_discoveries` | 發現/研究/評估/analyze/found | new findings, research |
+| `hall_preferences` | 偏好/喜歡/習慣/prefer/like | user preferences |
+| `hall_advice` | 建議/推薦/應該/recommend/suggest | suggestions, guidance |
+
+### Hybrid search over memory/notes
+Use `scripts/memory-search-hybrid.py "<query>"` instead of plain grep.
+It scores by keyword overlap × temporal recency × hall-type boost, and
+searches both `memory/` and `notes/` in one pass:
+
+```bash
+python3 scripts/memory-search-hybrid.py "auth migration" --days 30 --top 10
+python3 scripts/memory-search-hybrid.py "coffee" --days 7 --json
+```
+
+### Memory-search hard triggers
+When the user's message contains any of these, run the hybrid search
+**first**, before replying — don't judge whether memory is relevant, just
+run it. The `memory-search-trigger.py` hook also injects a reminder:
+
+1. Tracked proper nouns (your projects, services, infra — edit the list
+   in `.claude/hooks/memory-search-trigger.py`).
+2. Cross-host intents: "去拿 / 去抓 / fetch from / pull from / is there".
+3. Connection / credential questions: IP, port, token, ssh key, credentials.
+4. Temporal references: 之前 / 上次 / 還記得 / last time / previously.
+5. "Did we already install/run X" questions.
+
+Rationale: "should I search memory?" is a judgment call that gets skipped
+under load. The hard-trigger list turns it into pattern matching.
+
 ## SOUL.md Evolution
 - **Detect:** When user corrects behavior ("don't ask" "too verbose" "just do it"), write proposal to `memory/soul-proposals.md`
 - **Accumulate:** ≥ 3 similar proposals → propose SOUL.md update
@@ -63,6 +101,20 @@ When important conversations end, edit MEMORY.md directly:
 ## Heartbeats
 - Schedule architecture → see HEARTBEAT.md
 - Nothing to report → reply HEARTBEAT_OK
+
+## Pending Flags (cron → flag → SessionStart hook)
+Background cron scripts drop flag files into `.claude/flags/*.flag` when
+a threshold is crossed (broken wikilinks, TODO backlog, stale cache, …).
+The `session-start-flags.sh` hook surfaces them at the start of every
+session as a system reminder.
+
+**When a flag reminder arrives:**
+1. Surface it to the user — they may have forgotten it exists.
+2. Read the accompanying `<name>-report.txt` for the full list.
+3. Triage or fix. Don't mass-apply anything destructive without asking.
+4. After resolving, `rm .claude/flags/<name>.flag` to clear the signal.
+
+Full architecture and how to add new flag types: `guides/flag-system.md`.
 
 ## Reliability (Four Defense Lines)
 1. **Create → Verify** — Check results immediately after setup

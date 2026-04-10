@@ -26,6 +26,10 @@ After installing:
 
 - 📚 **Your agent builds a knowledge base** — Topic-organized notes (`notes/areas/`, `notes/resources/`) complement daily logs (`memory/`). The knowledge layer merges related entries instead of creating fragments. Add `notes/` to `memorySearch.extraPaths` for full-text retrieval. See [Context Tree guide](guides/context-tree.md).
 
+- 🔍 **Your agent finds things faster** — Hybrid memory search (`scripts/memory-search-hybrid.py`) scores `memory/` and `notes/` by keyword overlap × temporal recency × hall-type boost. A MemPalace-inspired hall taxonomy (`hall_facts`, `hall_events`, `hall_discoveries`, `hall_preferences`, `hall_advice`) tags journal entries for better retrieval, and a UserPromptSubmit hook forces a memory search whenever hard-trigger keywords appear — so "should I search memory?" is no longer a judgment call.
+
+- 🚩 **Your agent has a pending-work inbox** — A **cron → flag → SessionStart hook** pipeline turns deterministic background checks (broken wikilinks, TODO backlog, stale caches) into flag files under `.claude/flags/`. Cron does the detection; the next Claude session picks them up via a SessionStart hook and acts on them. Cron never wakes the LLM directly — "hard trigger, soft action". See [flag-system guide](guides/flag-system.md).
+
 ## Quick Start
 
 1. Install [OpenClaw](https://openclaw.ai) if you haven't:
@@ -85,13 +89,24 @@ workspace/
 │   ├── ERRORS.md
 │   ├── LEARNINGS.md
 │   └── FEATURE_REQUESTS.md
+├── .claude/
+│   ├── flags/            # Pending-work flags (cron drops them here)
+│   └── hooks/            # SessionStart + UserPromptSubmit hooks
 ├── scripts/
-│   ├── cron-memory-sync.sh # Hourly conversation extraction → daily memory
+│   ├── lib/              # Shared helpers (workspace / notify / flag)
+│   ├── cron-memory-sync.sh         # Hourly conversation extraction
+│   ├── cron-broken-links-check.sh  # Flag when broken wikilinks > N
+│   ├── cron-notes-todo-check.sh    # Flag when TODO backlog > N
 │   ├── memory-dream.sh    # Weekly "dreaming" — cold memory association
 │   ├── memory-reflect.sh  # Daily rumination — contradiction detection
 │   ├── memory-expire.sh   # Monthly archive of old daily files
 │   ├── memory-janitor.py  # Memory cleanup utility
-│   └── health-check.sh    # Post-install verification
+│   ├── memory-search-hybrid.py   # Hybrid keyword × temporal × hall scoring
+│   ├── hall-tagger.sh             # Backfill hall_* tags on journal bullets
+│   ├── compact-update.py          # Generate MEMORY_COMPACT.md from markers
+│   ├── check-broken-wikilinks.py  # Standalone broken-link scanner
+│   ├── install-cron.sh            # Print / install the crontab snippet
+│   └── health-check.sh            # Post-install verification
 ├── skills/            # Agent skills
 │   ├── memory/        # Memory management
 │   ├── telegram-html-reply/  # Rich HTML replies for Telegram
@@ -169,6 +184,8 @@ Before responding, the agent classifies each message:
 - [Routine Checks](guides/routine-checks.md) — Type A/B monitoring framework
 - [Multi-instance Setup](guides/multi-instance.md) — Running multiple specialized agents
 - [Post-Install Checklist](guides/post-install-checklist.md) — Verify everything actually works after setup
+- [Flag System](guides/flag-system.md) — `cron → flag → SessionStart hook` for background work triage
+- [Smart Wikilinks (optional)](guides/smart-wikilinks.md) — Recipe for embedding-based related-note suggestions
 
 ## Customization
 
