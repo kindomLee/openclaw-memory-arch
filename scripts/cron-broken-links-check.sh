@@ -32,31 +32,48 @@ fi
 REPORT=$(flag_report_path "$WS" "$FLAG_NAME")
 mkdir -p "$(dirname "$REPORT")"
 
-COUNT=$(python3 - "$NOTES_DIR" "$REPORT" <<'PY'
+COUNT=$(python3 - "$NOTES_DIR" "$REPORT" "$WS" <<'PY'
 import re, sys
 from pathlib import Path
 
 notes_root = Path(sys.argv[1])
 report_path = sys.argv[2]
+workspace = Path(sys.argv[3])
 
-WIKI = re.compile(r'\[\[([^\]|#]+)(?:\|[^\]]*)?\]\]')
+# Regex notes:
+#   - `[^\]|#\\]` excludes backslash so the Obsidian in-table escape form
+#     `[[page\|alias]]` does not capture `page\` as the target.
+#   - `\\?` allows the optional escape before the alias pipe.
+WIKI = re.compile(r'\[\[([^\]|#\\]+)(?:\\?\|[^\]]*)?\]\]')
+
+# Build the stem index from every place a wikilink might legitimately
+# resolve to:
+#   - notes/ (the main knowledge base)
+#   - memory/ (journal entries + archive subdirectories)
+#   - workspace-root .md files (AGENTS, MEMORY, TOOLS, README, ...)
 all_md = list(notes_root.rglob('*.md'))
+memory_dir = workspace / 'memory'
+if memory_dir.is_dir():
+    all_md += list(memory_dir.rglob('*.md'))
+all_md += list(workspace.glob('*.md'))
+
 stems = {p.stem.lower() for p in all_md}
 basenames = {p.name.lower() for p in all_md}
 
 broken = []
-for md in all_md:
+for md in notes_root.rglob('*.md'):
     try:
         text = md.read_text(encoding='utf-8', errors='ignore')
     except Exception:
         continue
     for m in WIKI.finditer(text):
-        target = m.group(1).strip().split('/')[-1].lower()
+        raw = m.group(1).strip().rstrip('\\')
+        target = raw.split('/')[-1].lower()
         if not target:
             continue
         if target in stems or f'{target}.md' in basenames:
             continue
-        broken.append((str(md.relative_to(notes_root)), m.group(1).strip()))
+        broken.append((str(md.relative_to(notes_root)), raw))
 
 with open(report_path, 'w', encoding='utf-8') as f:
     f.write(f'Broken wikilinks: {len(broken)}\n')
