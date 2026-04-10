@@ -19,7 +19,11 @@ import re
 import sys
 from pathlib import Path
 
-WIKI = re.compile(r"\[\[([^\]|#]+)(?:\|[^\]]*)?\]\]")
+# Regex notes (shared with scripts/cron-broken-links-check.sh):
+#   - `[^\]|#\\]` excludes backslash so the Obsidian in-table escape form
+#     `[[page\|alias]]` does not capture `page\` as the target.
+#   - `\\?` allows the optional escape before the alias pipe.
+WIKI = re.compile(r"\[\[([^\]|#\\]+)(?:\\?\|[^\]]*)?\]\]")
 
 
 def find_workspace() -> Path:
@@ -27,7 +31,16 @@ def find_workspace() -> Path:
 
 
 def build_index(notes_root: Path):
+    # Include notes/, memory/ (journal + archives), and workspace-root
+    # `.md` files so that wikilinks like `[[AGENTS]]` or
+    # `[[2026-02-27]]` resolve against the places they actually live.
+    workspace = notes_root.parent
     all_md = list(notes_root.rglob("*.md"))
+    memory_dir = workspace / "memory"
+    if memory_dir.is_dir():
+        all_md += list(memory_dir.rglob("*.md"))
+    all_md += list(workspace.glob("*.md"))
+
     stems = {p.stem.lower() for p in all_md}
     basenames = {p.name.lower() for p in all_md}
     return all_md, stems, basenames
@@ -40,12 +53,13 @@ def scan_file(md: Path, stems: set, basenames: set) -> list[str]:
     except OSError:
         return broken
     for m in WIKI.finditer(text):
-        target = m.group(1).strip().split("/")[-1].lower()
+        raw = m.group(1).strip().rstrip("\\")
+        target = raw.split("/")[-1].lower()
         if not target:
             continue
         if target in stems or f"{target}.md" in basenames:
             continue
-        broken.append(m.group(1).strip())
+        broken.append(raw)
     return broken
 
 
