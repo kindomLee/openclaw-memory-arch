@@ -5,6 +5,82 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.0] - 2026-04-10
+
+Backported from 2+ weeks of production use on a Claude Code workspace
+(`cc-memory-project`). The theme is **determinism around the LLM**: push
+as much detection and scoring as possible into deterministic scripts, and
+only wake the LLM when something actually needs judgment.
+
+### Added
+
+- **Hybrid memory search** (`scripts/memory-search-hybrid.py`): scores
+  `memory/` and `notes/` files by keyword overlap × temporal recency ×
+  hall-type boost. Designed to replace plain grep as the default memory
+  lookup. Portable — derives the workspace root from its own location.
+- **Hall tagger** (`scripts/hall-tagger.sh`): backfills `[hall_facts]` /
+  `[hall_events]` / `[hall_discoveries]` / `[hall_preferences]` /
+  `[hall_advice]` prefixes on journal bullets, driven by keyword rules.
+  Idempotent, safe to run repeatedly. Inspired by MemPalace's hall
+  taxonomy. Hybrid search uses the prefixes as a scoring signal.
+- **Compact memory updater** (`scripts/compact-update.py`): generates
+  `MEMORY_COMPACT.md` from a `<!-- compact:start --> ... <!-- compact:end -->`
+  block inside `MEMORY.md`. Optionally mirrors the block into `CLAUDE.md`
+  if the same markers are present. No hard-coded section names — each
+  workspace decides its own compact format.
+- **Flag system** (`guides/flag-system.md`) — the **cron → flag →
+  SessionStart hook** pattern:
+  - `scripts/lib/workspace.sh`, `scripts/lib/notify.sh`, `scripts/lib/flag.sh`
+    — three tiny helper libs shared by every cron script. `notify.sh`
+    supports telegram / slack / stdout / none out of the box.
+  - `scripts/cron-broken-links-check.sh` — scan `notes/` for unresolved
+    `[[wikilinks]]`, write a flag when count exceeds
+    `BROKEN_LINKS_THRESHOLD`.
+  - `scripts/cron-notes-todo-check.sh` — count unresolved TODOs in
+    active notes (configurable via `NOTES_TODO_GLOBS`), flag when over
+    `NOTES_TODO_THRESHOLD`.
+  - `templates/.claude/hooks/session-start-flags.sh` — reads every
+    `.claude/flags/*.flag` and injects them as SessionStart
+    `additionalContext`. No code changes needed to add new flag types.
+  - `templates/.claude/hooks/memory-search-trigger.py` — UserPromptSubmit
+    hook that forces a memory search when hard-trigger keywords hit
+    (tracked proper nouns, cross-host intents, temporal references,
+    credential questions). Keyword lists are documented and editable.
+  - `templates/.claude/settings.json` — wires both hooks into the
+    permission model.
+  - `templates/.claude/flags/README.md` — file-format and
+    add-a-new-flag-type documentation.
+  - `templates/crontab.example` — environment-variable driven schedule,
+    no hard-coded paths.
+  - `scripts/install-cron.sh` — prints the crontab snippet with the
+    detected `OPENCLAW_WORKSPACE` substituted in. Confirms before
+    writing anything with `--install`.
+- **Broken wikilink detector** (`scripts/check-broken-wikilinks.py`):
+  standalone pure-regex scanner for manual triage. Works on a single
+  file or the whole `notes/` tree, supports `--json` for tool chaining.
+- **Smart-wikilinks guide** (`guides/smart-wikilinks.md`): recipe for
+  optional embedding-based "related notes" suggestions. Documents the
+  shape of an implementation without shipping one — embedding providers
+  and auth differ too much across workspaces to ship a useful default.
+
+### Changed
+
+- `templates/AGENTS.md`: added **Hall Classification**, **Hybrid search**,
+  **Memory-search hard triggers**, and **Pending Flags** sections. The
+  hard-trigger list is the behavior change that matters most — it takes
+  "should I search memory?" off the LLM's plate.
+
+### Notes
+
+- The flag system embodies **"hard trigger, soft action"**: cron detects
+  deterministically on a schedule, the LLM reacts when the user is
+  already in a session. Cron never wakes the LLM directly.
+- Hybrid search replaces grep as the default memory lookup in all new
+  guidance. It's ~2× more accurate for noun-queries and handles Chinese
+  tokenization without extra config.
+
+---
+
 ## [2.3.0] - 2026-03-28
 
 ### Added
@@ -111,6 +187,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+[2.4.0]: https://github.com/kindomLee/openclaw-workspace-template/compare/v2.3.0...v2.4.0
+[2.3.0]: https://github.com/kindomLee/openclaw-workspace-template/compare/v2.2.0...v2.3.0
 [2.2.0]: https://github.com/kindomLee/openclaw-workspace-template/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/kindomLee/openclaw-workspace-template/compare/v2.0.0...v2.1.0
 [2.0.0]: https://github.com/kindomLee/openclaw-workspace-template/compare/v1.0.0...v2.0.0
